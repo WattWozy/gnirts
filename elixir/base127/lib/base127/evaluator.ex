@@ -95,6 +95,61 @@ defmodule Base127.Evaluator do
     end
   end
 
+  defp do_eval({:interpolate, points_ast}, vars) do
+    with {:ok, points, vars2} <- eval_points(points_ast, vars) do
+      case Base127.Interpolation.lagrange(points) do
+        {:error, reason} -> {:error, "Interpolation error: #{reason}"}
+        poly -> {:ok, poly, vars2}
+      end
+    end
+  end
+
+  defp do_eval({:interpolate_at, points_ast, v_ast}, vars) do
+    with {:ok, points, vars2} <- eval_points(points_ast, vars),
+         {:ok, v, vars3} <- do_eval(v_ast, vars2) do
+      # Interpolate_at expects Num127
+      v_num = case v do
+        digits when is_list(digits) -> digits
+        {:num_neg, digits} -> digits # Handle sign in evaluate_at? Barycentric usually over field.
+        # But evaluate_at in Interpolation module expects Num127 (list).
+        # We'll assume field elements.
+        _ -> raise "Expected Num127 for 'at' value"
+      end
+
+      case Base127.Interpolation.evaluate_at(points, v_num) do
+        {:error, reason} -> {:error, "Interpolation error: #{reason}"}
+        res -> {:ok, res, vars3}
+      end
+    end
+  end
+
+  defp eval_points([], vars), do: {:ok, [], vars}
+  defp eval_points([{x_ast, y_ast} | rest], vars) do
+    with {:ok, x_val, vars2} <- do_eval(x_ast, vars),
+         {:ok, y_val, vars3} <- do_eval(y_ast, vars2) do
+      # Points must be Num127 (field elements)
+      x_num = to_field_element(x_val)
+      y_num = to_field_element(y_val)
+      
+      case eval_points(rest, vars3) do
+        {:ok, points, vars4} -> {:ok, [{x_num, y_num} | points], vars4}
+        err -> err
+      end
+    end
+  end
+
+  defp to_field_element(val) do
+    case val do
+      digits when is_list(digits) -> digits
+      {:num_neg, digits} -> 
+        # Convert to positive element in GF127
+        {_, r} = Num127.div_rem(digits, [0, 1])
+        d = case r do [] -> 0; [val] -> val end
+        [GF127.sub(0, d)] |> Num127.normalize()
+      _ -> raise "Expected field element (Num127)"
+    end
+  end
+
   # --- Arithmetic Helpers ---
 
   defp neg_val(%Base127.Poly{} = p) do

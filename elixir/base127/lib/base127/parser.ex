@@ -37,6 +37,9 @@ defmodule Base127.Parser do
       String.starts_with?(str, "^") -> ["^" | tokenize(String.slice(str, 1..-1))]
       String.starts_with?(str, ".") -> ["." | tokenize(String.slice(str, 1..-1))]
       String.starts_with?(str, "=") -> ["=" | tokenize(String.slice(str, 1..-1))]
+      String.starts_with?(str, "[") -> ["[" | tokenize(String.slice(str, 1..-1))]
+      String.starts_with?(str, "]") -> ["]" | tokenize(String.slice(str, 1..-1))]
+      String.starts_with?(str, ",") -> ["," | tokenize(String.slice(str, 1..-1))]
       true ->
         # Check for glyphs or variable names (variable names must not start with glyphs if ambiguous)
         # Actually, let's keep it simple: variable names are alphabetic but not single glyphs if they are in Alphabet.
@@ -98,7 +101,7 @@ defmodule Base127.Parser do
   defp split_identifier(str) do
     # Take contiguous characters that are not operators or whitespace.
     # Stop before 'x' so it remains a separate indeterminate token.
-    case Regex.run(~r/^[^\s\(\)\+\-\*\/\.\=\^x]+/, str) do
+    case Regex.run(~r/^[^\s\(\)\+\-\*\/\.\=\^x\[\]\,]+/, str) do
       [match] -> {match, String.slice(str, String.length(match)..-1)}
       nil ->
         if String.starts_with?(str, "x") do
@@ -182,7 +185,7 @@ defmodule Base127.Parser do
       err -> err
     end
   end
-  defp parse_mul_div_loop(left, [token | _] = rest) when token not in ["+", "-", ")", "=", "^"] do
+  defp parse_mul_div_loop(left, [token | _] = rest) when token not in ["+", "-", ")", "=", "^", "[", "]", ",", "at"] do
     # Implicit multiplication (juxtaposition)
     case parse_unary(rest) do
       {:ok, right, final_rest} -> parse_mul_div_loop({:op, "*", left, right}, final_rest)
@@ -211,14 +214,30 @@ defmodule Base127.Parser do
     end
   end
 
-  defp parse_primary(["(" | rest]) do
+  defp parse_primary(tokens), do: do_parse_primary(tokens)
+
+  defp do_parse_primary(["interpolate" | rest]) do
+    # interpolate [(x0, y0), (x1, y1), ...] [at v]
+    with {:ok, points, rest2} <- parse_points_list(rest) do
+      case rest2 do
+        ["at" | rest3] ->
+          case parse_expression(rest3) do
+            {:ok, v, final_rest} -> {:ok, {:interpolate_at, points, v}, final_rest}
+            err -> err
+          end
+        _ ->
+          {:ok, {:interpolate, points}, rest2}
+      end
+    end
+  end
+  defp do_parse_primary(["(" | rest]) do
     case parse_expression(rest) do
       {:ok, ast, [")" | final_rest]} -> {:ok, ast, final_rest}
       {:ok, _ast, _} -> {:error, "Missing closing parenthesis"}
       err -> err
     end
   end
-  defp parse_primary([token | rest]) do
+  defp do_parse_primary([token | rest]) do
     cond do
       # Radix point check
       token =~ ~r/^[^\.\s\(\)\+\-\*\/\=]+\.[^\.\s\(\)\+\-\*\/\=]+$/ ->
@@ -244,6 +263,29 @@ defmodule Base127.Parser do
     end
   end
   defp parse_primary([]), do: {:error, "Unexpected end of input"}
+
+  defp parse_points_list(["[" | rest]) do
+    do_parse_points_list(rest, [])
+  end
+  defp parse_points_list(_), do: {:error, "Expected '[' for points list"}
+
+  defp do_parse_points_list(["]" | rest], acc), do: {:ok, Enum.reverse(acc), rest}
+  defp do_parse_points_list(["(" | rest], acc) do
+    with {:ok, x, ["," | rest2]} <- parse_expression(rest),
+         {:ok, y, [")" | rest3]} <- parse_expression(rest2) do
+      # Optional comma between points
+      case rest3 do
+        ["," | rest4] -> do_parse_points_list(rest4, [{x, y} | acc])
+        _ -> do_parse_points_list(rest3, [{x, y} | acc])
+      end
+    else
+      {:ok, _, [token | _]} -> {:error, "Unexpected token in point: #{token}"}
+      {:ok, _, []} -> {:error, "Unexpected end of input in point"}
+      {:error, reason} -> {:error, reason}
+    end
+  end
+  defp do_parse_points_list([token | _], _), do: {:error, "Unexpected token in points list: #{token}"}
+  defp do_parse_points_list([], _), do: {:error, "Unexpected end of input in points list"}
 
   defp parse_digits(str) do
     str
