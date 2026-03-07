@@ -179,6 +179,21 @@ defmodule Num127 do
     {q_d, []} = div_rem(d, g)
     {q_n, q_d}
   end
+  
+  @doc "Exponentiation by squaring using only Num127.mul."
+  def pow(_base, []), do: [1] # a^0 = 1
+  def pow(base, [1]), do: normalize(base) # a^1 = a
+  def pow(base, exp) do
+    {q, r} = div_rem(exp, [2])
+    half_pow = pow(base, q)
+    squared = mul(half_pow, half_pow)
+    
+    if r == [] do
+      squared
+    else
+      mul(base, squared)
+    end
+  end
 
   @doc "Converts a Num127 string to our Base127 printable glyph alphabet."
   def to_string([]), do: Map.fetch!(@val_to_char, 0)

@@ -34,6 +34,7 @@ defmodule Base127.Parser do
       String.starts_with?(str, "-") -> ["-" | tokenize(String.slice(str, 1..-1))]
       String.starts_with?(str, "*") -> ["*" | tokenize(String.slice(str, 1..-1))]
       String.starts_with?(str, "/") -> ["/" | tokenize(String.slice(str, 1..-1))]
+      String.starts_with?(str, "^") -> ["^" | tokenize(String.slice(str, 1..-1))]
       String.starts_with?(str, ".") -> ["." | tokenize(String.slice(str, 1..-1))]
       String.starts_with?(str, "=") -> ["=" | tokenize(String.slice(str, 1..-1))]
       true ->
@@ -96,7 +97,7 @@ defmodule Base127.Parser do
 
   defp split_identifier(str) do
     # Take contiguous characters that are not operators or whitespace.
-    case Regex.run(~r/^[^\s\(\)\+\-\*\/\.\=]+/, str) do
+    case Regex.run(~r/^[^\s\(\)\+\-\*\/\.\=\^]+/, str) do
       [match] -> {match, String.slice(str, String.length(match)..-1)}
       nil -> {"", str}
     end
@@ -109,7 +110,8 @@ defmodule Base127.Parser do
   # 2. Addition / Subtraction
   # 3. Multiplication / Division
   # 4. Unary Minus
-  # 5. Parens / Literals / Variables (highest)
+  # 5. Exponentiation (right-associative)
+  # 6. Parens / Literals / Variables (highest)
 
   defp parse_expression(tokens) do
     case parse_assignment(tokens) do
@@ -171,12 +173,24 @@ defmodule Base127.Parser do
   defp parse_mul_div_loop(left, rest), do: {:ok, left, rest}
 
   defp parse_unary(["-" | rest]) do
-    case parse_primary(rest) do
+    case parse_pow(rest) do
       {:ok, ast, final_rest} -> {:ok, {:neg, ast}, final_rest}
       err -> err
     end
   end
-  defp parse_unary(tokens), do: parse_primary(tokens)
+  defp parse_unary(tokens), do: parse_pow(tokens)
+
+  defp parse_pow(tokens) do
+    case parse_primary(tokens) do
+      {:ok, left, ["^" | rest]} ->
+        # Right-associativity: parse the right side as another power expression.
+        case parse_pow(rest) do
+          {:ok, right, final_rest} -> {:ok, {:op, "^", left, right}, final_rest}
+          err -> err
+        end
+      res -> res
+    end
+  end
 
   defp parse_primary(["(" | rest]) do
     case parse_expression(rest) do
@@ -210,6 +224,7 @@ defmodule Base127.Parser do
     str
     |> String.graphemes()
     |> Enum.map(&Alphabet.decode/1)
+    |> Enum.reverse()
   end
 
   defp try_decode_all(str) do

@@ -69,8 +69,13 @@ defmodule Base127.Evaluator do
         "*" -> {:ok, mul(l_val, r_val), vars3}
         "/" ->
           case to_rational(r_val) do
-            {[], _} -> {:error, "Division by zero"}
+            {[], _, _} -> {:error, "Division by zero"}
             _ -> {:ok, div_vals(l_val, r_val), vars3}
+          end
+        "^" ->
+          case to_rational(r_val) do
+            {_, [_ | _], _} -> {:ok, pow_vals(l_val, r_val), vars3}
+            _ -> {:error, "Invalid exponent"}
           end
       end
     end
@@ -146,6 +151,38 @@ defmodule Base127.Evaluator do
     sign = if s1 == s2, do: :pos, else: :neg
     normalize_rational(num, den, sign)
   end
+
+  defp pow_vals(v_base, v_exp) do
+    {n_b, d_b, s_b} = to_rational(v_base)
+    {n_e, d_e, s_e} = to_rational(v_exp)
+
+    # Exponentiation expects an integer exponent in this system for now.
+    if d_e != [1] do
+      # If we ever support fractional powers, we'd do it here.
+      # For now, let's treat it as integer.
+      raise "Non-integer exponent not supported"
+    end
+
+    case s_e do
+      :pos ->
+        # (s_b * n_b/d_b)^n_e
+        num = Num127.pow(n_b, n_e)
+        den = Num127.pow(d_b, n_e)
+        # Sign: if base was negative, exponent must be even for positive result.
+        sign = if s_b == :neg and rem_2(n_e) == 1, do: :neg, else: :pos
+        normalize_rational(num, den, sign)
+
+      :neg ->
+        # (s_b * n_b/d_b)^(-n_e) = (s_b * d_b/n_b)^n_e
+        num = Num127.pow(d_b, n_e)
+        den = Num127.pow(n_b, n_e)
+        sign = if s_b == :neg and rem_2(n_e) == 1, do: :neg, else: :pos
+        normalize_rational(num, den, sign)
+    end
+  end
+
+  defp rem_2([]), do: 0
+  defp rem_2(digits), do: rem(Enum.sum(digits), 2)
 
   defp normalize_rational(num, den, sign \\ :pos) do
     if num == [] do

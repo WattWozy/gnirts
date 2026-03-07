@@ -85,4 +85,13 @@ defmodule Num127Test do
     assert Num127.to_string([1]) == "1"
     assert Num127.to_string([126]) == "Â"
   end
+
+  property "pow(a, 3) matches mul(mul(a, a), a)" do
+    check all a <- integer(0..10_000) do
+      num_a = Num127.from_integer(a)
+      res_pow = Num127.pow(num_a, [3])
+      res_mul = Num127.mul(Num127.mul(num_a, num_a), num_a)
+      assert res_pow == res_mul
+    end
+  end
 end

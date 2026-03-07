@@ -7,8 +7,10 @@ defmodule Base127.REPL do
 
   @doc "Starts the REPL loop."
   def start do
+    require Logger
+    Logger.configure(level: :error)
     IO.puts("Base-127 Formal Language Runtime")
-    IO.puts("Type expressions or commands (e.g., :approx 5 1/3, :vars). Press Ctrl+C or Ctrl+D to exit.")
+    IO.puts("Type expressions or commands (e.g., :approx 5 1/3, :vars, :clear).")
     loop(%{})
   end
 
@@ -22,11 +24,18 @@ defmodule Base127.REPL do
         :ok
       line ->
         line = String.trim(line)
-        if line == "" do
-          loop(vars)
-        else
-          {new_vars, _} = handle_line(line, vars)
-          loop(new_vars)
+        cond do
+          line == "" ->
+            loop(vars)
+          line == ":clear" ->
+            IO.puts("Session cleared.")
+            loop(%{})
+          line == ":cls" ->
+            IO.write([IO.ANSI.clear(), IO.ANSI.home()])
+            loop(vars)
+          true ->
+            {new_vars, _} = handle_line(line, vars)
+            loop(new_vars)
         end
     end
   end

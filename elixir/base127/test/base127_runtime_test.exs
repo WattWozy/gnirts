@@ -33,6 +33,63 @@ defmodule Base127.RuntimeTest do
     end
   end
 
+  test "exponentiation basics" do
+    # 2^3 = 8
+    {:ok, ast} = Parser.parse("2 ^ 3")
+    {:ok, val} = Evaluator.eval(ast)
+    if Renderer.render(val) != "8" do
+      File.write!("FAILDATA_BASICS.txt", "2^3 expected 8, got #{Renderer.render(val)}")
+    end
+    assert Renderer.render(val) == "8"
+
+    # (1/2)^2 = 1/4
+    {:ok, ast} = Parser.parse("(1/2) ^ 2")
+    {:ok, val} = Evaluator.eval(ast)
+    if Renderer.render(val) != "1/4" do
+      File.write!("FAILDATA_BASICS.txt", "(1/2)^2 expected 1/4, got #{Renderer.render(val)}", [:append])
+    end
+    assert Renderer.render(val) == "1/4"
+
+    # 2^-1 = 1/2
+    {:ok, ast} = Parser.parse("2 ^ -1")
+    {:ok, val} = Evaluator.eval(ast)
+    if Renderer.render(val) != "1/2" do
+      File.write!("FAILDATA_BASICS.txt", "2^-1 expected 1/2, got #{Renderer.render(val)}", [:append])
+    end
+    assert Renderer.render(val) == "1/2"
+
+    # 10^2 = 100
+    # In base 127: 100 is glyph index 100.
+    # index 100 is greek lowercase ψ? No. glyph list...
+    # index 100 is in geometric or alpha...
+    # Alphabet: 0..9, A..Z, a..z: A=10, Z=35, a=36, z=61.
+    # 62..85: greek lower. 86..109: greek upper.
+    # 100 is lowercase Greek? No, 86 is upper starts. So 100 is in upper.
+    # 100 - 86 = 14. 15th upper Greek? 
+    # Α Β Γ Δ Ε Ζ Η Θ Ι Κ Λ Μ Ν Ξ Ο
+    # index 14 is Ο (Omicron upper).
+    # Wait, my count above was slightly different. Let's just evaluate and see!
+    {:ok, ast} = Parser.parse("10^2")
+    {:ok, val} = Evaluator.eval(ast)
+    # 10 in base 127 is 127. 10^2 = 127^2 = 16129 = [0, 0, 1] -> "100"
+    rendered = Renderer.render(val)
+    if rendered != "100" do
+      File.write!("FAILDATA_BASICS.txt", "10^2 expected 100, got #{rendered}", [:append])
+    end
+    assert rendered == "100"
+  end
+
+  test "exponentiation right-associativity" do
+    # 2^3^2 = 2^(3^2) = 2^9 = 512
+    {:ok, ast} = Parser.parse("2 ^ 3 ^ 2")
+    {:ok, val} = Evaluator.eval(ast)
+    # 512 = 4*127 + 4 = [4, 4] reversed [4, 4] -> "44"
+    if Renderer.render(val) != "44" do
+      File.write!("FAILDATA_ASSOC.txt", "2^3^2 expected 44, got #{Renderer.render(val)}")
+    end
+    assert Renderer.render(val) == "44"
+  end
+
   test "rational results are in lowest terms" do
     # 2/4 should be 1/2
     # In Base-127: 2/4
@@ -40,6 +97,9 @@ defmodule Base127.RuntimeTest do
     {:ok, ast} = Parser.parse("2 / 4")
     {:ok, val} = Evaluator.eval(ast)
     # 1/2 rendered
+    if Renderer.render(val) != "1/2" do
+      File.write!("FAILDATA_LOWEST.txt", "2/4 expected 1/2, got #{Renderer.render(val)}")
+    end
     assert Renderer.render(val) == "1/2"
   end
 
@@ -56,6 +116,9 @@ defmodule Base127.RuntimeTest do
     # G is index 16.
     # a is index 36. g is index 42.
     # So 0.g g g ...
+    if Renderer.approx(val, 3) != "0.ggg" do
+      File.write!("FAILDATA_APPROX.txt", "1/3 expected 0.ggg, got #{Renderer.approx(val, 3)}")
+    end
     assert Renderer.approx(val, 3) == "0.ggg"
   end
 end

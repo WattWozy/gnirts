@@ -89,4 +89,15 @@ defmodule GF127Test do
       assert GF127.mul(inv_a, a) == 1
     end
   end
+
+  property "Fermat's Little Theorem: a^126 == 1 for all non-zero elements" do
+    check all a <- gf_nonzero_val() do
+      assert GF127.pow(a, 126) == 1
+    end
+  end
+
+  test "0^n is 0 for n > 0, and 0^0 is 1" do
+    assert GF127.pow(0, 0) == 1
+    assert GF127.pow(0, 5) == 0
+  end
 end
