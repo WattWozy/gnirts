@@ -97,9 +97,15 @@ defmodule Base127.Parser do
 
   defp split_identifier(str) do
     # Take contiguous characters that are not operators or whitespace.
-    case Regex.run(~r/^[^\s\(\)\+\-\*\/\.\=\^]+/, str) do
+    # Stop before 'x' so it remains a separate indeterminate token.
+    case Regex.run(~r/^[^\s\(\)\+\-\*\/\.\=\^x]+/, str) do
       [match] -> {match, String.slice(str, String.length(match)..-1)}
-      nil -> {"", str}
+      nil ->
+        if String.starts_with?(str, "x") do
+          {"x", String.slice(str, 1..-1)}
+        else
+          {"", str}
+        end
     end
   end
 
@@ -119,7 +125,9 @@ defmodule Base127.Parser do
         case parse_expression(rest) do
           {:ok, right, final_rest} ->
             case left do
+              {:id, "x"} -> {:error, "Assignment to reserved keyword 'x' is not allowed"}
               {:var, name} -> {:ok, {:assign, name, right}, final_rest}
+              {:id, name} -> {:ok, {:assign, name, right}, final_rest}
               {:num, digits} ->
                 # If it's a single digit, maybe we allow it as a variable?
                 # "x = 5". If x is a digit, we can't assign to it.
@@ -127,7 +135,11 @@ defmodule Base127.Parser do
                 # If 'x' is a glyph, it's a digit.
                 # Let's assume if it's on the left of '=', it's a variable name literal string.
                 name = digits_to_string(digits)
-                {:ok, {:assign, name, right}, final_rest}
+                if name == "x" do
+                  {:error, "Assignment to reserved keyword 'x' is not allowed"}
+                else
+                  {:ok, {:assign, name, right}, final_rest}
+                end
               _ -> {:error, "Invalid assignment target"}
             end
           err -> err
@@ -170,6 +182,13 @@ defmodule Base127.Parser do
       err -> err
     end
   end
+  defp parse_mul_div_loop(left, [token | _] = rest) when token not in ["+", "-", ")", "=", "^"] do
+    # Implicit multiplication (juxtaposition)
+    case parse_unary(rest) do
+      {:ok, right, final_rest} -> parse_mul_div_loop({:op, "*", left, right}, final_rest)
+      err -> err
+    end
+  end
   defp parse_mul_div_loop(left, rest), do: {:ok, left, rest}
 
   defp parse_unary(["-" | rest]) do
@@ -208,11 +227,17 @@ defmodule Base127.Parser do
 
       # Just a literal/variable
       token =~ ~r/^[^\.\s\(\)\+\-\*\/\=]+$/ ->
-        # If every character is in the Alphabet, it's a literal number.
-        # Otherwise, treat it as an identifier (variable).
-        case try_decode_all(token) do
-          {:ok, digits} -> {:ok, {:num, digits}, rest}
-          :error -> {:ok, {:id, token}, rest}
+        # Priority 1: Reserved keyword 'x'
+        if token == "x" do
+          {:ok, {:id, "x"}, rest}
+        else
+          # Priority 2: Literal number
+          # If every character is in the Alphabet, it's a literal number.
+          # Otherwise, treat it as an identifier (variable).
+          case try_decode_all(token) do
+            {:ok, digits} -> {:ok, {:num, digits}, rest}
+            :error -> {:ok, {:id, token}, rest}
+          end
         end
 
       true -> {:error, "Unexpected token: #{token}"}

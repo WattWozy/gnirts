@@ -21,6 +21,8 @@ defmodule Base127.Evaluator do
 
   defp do_eval({:num, digits}, vars), do: {:ok, Num127.normalize(digits), vars}
 
+  defp do_eval({:id, "x"}, vars), do: {:ok, Base127.Poly.identity(), vars}
+
   defp do_eval({:id, name}, vars) do
     # If it's a known variable, return it.
     # Otherwise, try to parse it as a literal.
@@ -68,16 +70,20 @@ defmodule Base127.Evaluator do
         "-" -> {:ok, sub(l_val, r_val), vars3}
         "*" -> {:ok, mul(l_val, r_val), vars3}
         "/" ->
-          case to_rational(r_val) do
-            {[], _, _} -> {:error, "Division by zero"}
-            _ -> {:ok, div_vals(l_val, r_val), vars3}
+          case effectively_zero?(r_val) do
+            true -> {:error, "Division by zero"}
+            false -> {:ok, div_vals(l_val, r_val), vars3}
           end
-        "^" ->
-          case to_rational(r_val) do
-            {_, [_ | _], _} -> {:ok, pow_vals(l_val, r_val), vars3}
-            _ -> {:error, "Invalid exponent"}
-          end
+        "^" -> {:ok, pow_vals(l_val, r_val), vars3}
       end
+    end
+  end
+
+  defp effectively_zero?(%Base127.Poly{coeffs: coeffs}), do: coeffs == []
+  defp effectively_zero?(val) do
+    case to_rational(val) do
+      {[], _, _} -> true
+      _ -> false
     end
   end
 
@@ -91,6 +97,9 @@ defmodule Base127.Evaluator do
 
   # --- Arithmetic Helpers ---
 
+  defp neg_val(%Base127.Poly{} = p) do
+    Base127.Poly.sub(Base127.Poly.zero(), p)
+  end
   defp neg_val({:rat, n, d, :neg}), do: {:rat, n, d, :pos}
   defp neg_val({:rat, n, d, :pos}), do: {:rat, n, d, :neg}
   defp neg_val(digits) when is_list(digits), do: {:num_neg, digits}
@@ -104,6 +113,9 @@ defmodule Base127.Evaluator do
   defp from_rational({n, [1], :neg}), do: {:num_neg, n}
   defp from_rational({n, d, sign}), do: {:rat, n, d, sign}
 
+  defp add(%Base127.Poly{} = p, %Base127.Poly{} = q), do: Base127.Poly.add(p, q)
+  defp add(%Base127.Poly{} = p, v), do: Base127.Poly.add(p, to_poly(v))
+  defp add(v, %Base127.Poly{} = p), do: Base127.Poly.add(to_poly(v), p)
   defp add(v1, v2) do
     {n1, d1, s1} = to_rational(v1)
     {n2, d2, s2} = to_rational(v2)
@@ -133,6 +145,9 @@ defmodule Base127.Evaluator do
 
   defp sub(v1, v2), do: add(v1, neg_val(v2))
 
+  defp mul(%Base127.Poly{} = p, %Base127.Poly{} = q), do: Base127.Poly.mul(p, q)
+  defp mul(%Base127.Poly{} = p, v), do: Base127.Poly.scale(p, v)
+  defp mul(v, %Base127.Poly{} = p), do: Base127.Poly.scale(p, v)
   defp mul(v1, v2) do
     {n1, d1, s1} = to_rational(v1)
     {n2, d2, s2} = to_rational(v2)
@@ -142,6 +157,24 @@ defmodule Base127.Evaluator do
     normalize_rational(num, den, sign)
   end
 
+  defp div_vals(%Base127.Poly{} = p, %Base127.Poly{} = q) do
+    case Base127.Poly.div(p, q) do
+      {:error, reason} -> raise "Polynomial division error: #{reason}"
+      {quot, _rem} -> quot # Or should we return a pair? Prompt: "p = q*quot + rem".
+      # Usually literal '/' in expressions might mean quotient.
+    end
+  end
+  defp div_vals(%Base127.Poly{} = p, v) do
+    # scale(p, 1/v)
+    {n, d, sign} = to_rational(v)
+    if d != [1] or sign == :neg do
+      raise "Scaling polynomial by non-integer or negative not fully supported in this context"
+    end
+    # over GF(127)
+    d_val = case n do [] -> 0; [val] -> val end
+    inv_v = [GF127.inv(d_val)] |> Num127.normalize()
+    Base127.Poly.scale(p, inv_v)
+  end
   defp div_vals(v1, v2) do
     {n1, d1, s1} = to_rational(v1)
     {n2, d2, s2} = to_rational(v2)
@@ -152,6 +185,13 @@ defmodule Base127.Evaluator do
     normalize_rational(num, den, sign)
   end
 
+  defp pow_vals(%Base127.Poly{} = p, v_exp) do
+    {n_e, d_e, s_e} = to_rational(v_exp)
+    if d_e != [1] or s_e == :neg do
+      raise "Non-positive-integer exponent for polynomial not supported"
+    end
+    Base127.Poly.pow(p, n_e)
+  end
   defp pow_vals(v_base, v_exp) do
     {n_b, d_b, s_b} = to_rational(v_base)
     {n_e, d_e, s_e} = to_rational(v_exp)
@@ -179,6 +219,19 @@ defmodule Base127.Evaluator do
         sign = if s_b == :neg and rem_2(n_e) == 1, do: :neg, else: :pos
         normalize_rational(num, den, sign)
     end
+  end
+
+  defp to_poly(%Base127.Poly{} = p), do: p
+  defp to_poly(v) do
+    {n, d, sign} = to_rational(v)
+    poly = if d != [1] do
+      # For now, just use numerator, but ideally handle field division
+      %Base127.Poly{coeffs: [n]}
+    else
+      %Base127.Poly{coeffs: [n]}
+    end
+    
+    if sign == :neg, do: neg_val(poly), else: poly
   end
 
   defp rem_2([]), do: 0

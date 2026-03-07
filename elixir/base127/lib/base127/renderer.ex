@@ -9,12 +9,53 @@ defmodule Base127.Renderer do
   @doc "Renders a value to its canonical Base-127 string representation."
   def render(val) do
     case val do
+      %Base127.Poly{} = p -> render_poly(p)
       [] -> Alphabet.encode(0)
       digits when is_list(digits) -> render_unsigned(digits)
       {:num_neg, digits} -> "-" <> render_unsigned(digits)
       {:rat, n, d, sign} ->
         prefix = if sign == :neg, do: "-", else: ""
         prefix <> render_unsigned(n) <> "/" <> render_unsigned(d)
+    end
+  end
+
+  defp render_poly(%Base127.Poly{coeffs: []}), do: Alphabet.encode(0)
+  defp render_poly(%Base127.Poly{coeffs: coeffs}) do
+    coeffs
+    |> Enum.with_index()
+    |> Enum.reverse() # Descending degree
+    |> Enum.map(fn {c, deg} -> render_term(c, deg) end)
+    |> Enum.reject(&(&1 == ""))
+    |> case do
+      [] -> Alphabet.encode(0)
+      terms -> Enum.join(terms, " + ")
+    end
+  end
+
+  defp render_term(c, deg) do
+    c_norm = Num127.normalize(c)
+    if c_norm == [] do
+      ""
+    else
+      c_str = render_unsigned(c_norm)
+      cond do
+        deg == 0 -> c_str
+        deg == 1 ->
+          if c_str == "1", do: "x", else: c_str <> "x"
+        true ->
+          # For degree > 1
+          # Need to render degree as Num127? 
+          # Prompt: "descending-degree form". Example: 3x^2
+          # I'll use Elixir integer to string for degree rendering for now IF it's small,
+          # BUT the prompt says "No base-10 assumptions".
+          # So I should render the degree using render_unsigned(Num127.from_integer(deg)).
+          deg_str = render_unsigned(Num127.from_integer(deg))
+          if c_str == "1" do
+            "x^" <> deg_str
+          else
+            c_str <> "x^" <> deg_str
+          end
+      end
     end
   end
 

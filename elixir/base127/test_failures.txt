@@ -1,0 +1,7 @@
+﻿Compiling 1 file (.ex)
+Generated base127 app
+Running ExUnit with seed: 356635, max_cases: 32
+
+......
+Finished in 0.1 seconds (0.00s async, 0.1s sync)
+6 properties, 0 failures
