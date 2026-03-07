@@ -1,0 +1,131 @@
+﻿Compiling 1 file (.ex)
+mix.bat :      warning: mis
+sing parentheses for expres
+sion following "do:" keywor
+d. Parentheses are required
+ to solve ambiguity inside 
+keywords.
+At C:\Program Files\Elixir\
+bin\mix.ps1:23 char:1
++ & $mixBatPath $newArgs
++ ~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo         
+     : NotSpecified: (     
+    warning: m...nside k   
+ eywords.:String) [], R    
+emoteException
+    + FullyQualifiedErrorI 
+   d : NativeCommandError
+ 
+
+     This error happens whe
+n you have function calls w
+ithout parentheses inside k
+eywords. For example:
+
+         function(arg, one:
+ nested_call a, b, c)
+         function(arg, one:
+ if expr, do: :this, else: 
+:that)
+
+     In the examples above,
+ we don't know if the argum
+ents "b" and "c" apply to t
+he function "function" or "
+nested_call". Or if the key
+words "do" and "else" apply
+ to the function "function"
+ or "if". You can solve thi
+s by explicitly adding pare
+ntheses:
+
+         function(arg, one:
+ if(expr, do: :this, else: 
+:that))
+         function(arg, one:
+ nested_call(a, b, c))
+
+     Ambiguity found at:
+     Ôöé
+ 133 Ôöé     if d == [], do
+: raise ArithmeticError, "d
+ivide by zero"
+     Ôöé     ~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~
+     Ôöé
+     ÔööÔöÇ lib/num127.ex:1
+33
+
+     warning: missing paren
+theses for expression follo
+wing "do:" keyword. Parenth
+eses are required to solve 
+ambiguity inside keywords.
+
+     This error happens whe
+n you have function calls w
+ithout parentheses inside k
+eywords. For example:
+
+         function(arg, one:
+ nested_call a, b, c)
+         function(arg, one:
+ if expr, do: :this, else: 
+:that)
+
+     In the examples above,
+ we don't know if the argum
+ents "b" and "c" apply to t
+he function "function" or "
+nested_call". Or if the key
+words "do" and "else" apply
+ to the function "function"
+ or "if". You can solve thi
+s by explicitly adding pare
+ntheses:
+
+         function(arg, one:
+ if(expr, do: :this, else: 
+:that))
+         function(arg, one:
+ nested_call(a, b, c))
+
+     Ambiguity found at:
+     Ôöé
+ 176 Ôöé     if d == [], do
+: raise ArithmeticError, "d
+ivide by zero"
+     Ôöé     ~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~
+     Ôöé
+     ÔööÔöÇ lib/num127.ex:1
+76
+
+     error: undefined funct
+ion add_digits/2 (expected 
+Num127 to define such a fun
+ction or for it to be impor
+ted, but none are available
+)
+     Ôöé
+ 102 Ôöé     {sum_low, c_ou
+t} = add_digits(m_low, carr
+y)
+     Ôöé                   
+     ^^^^^^^^^^
+     Ôöé
+     ÔööÔöÇ lib/num127.ex:1
+02:24: Num127.do_mul_digit/
+3
+
+
+== Compilation error in fil
+e lib/num127.ex ==
+** (CompileError) lib/num12
+7.ex: cannot compile module
+ Num127 (errors have been l
+ogged)
+

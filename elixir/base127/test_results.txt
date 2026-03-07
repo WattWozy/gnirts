@@ -1,0 +1,60 @@
+﻿Running ExUnit with seed: 794800, max_cases: 32
+
+..
+
+  1) test to_string representation (Num127Test)
+     test/num127_test.exs:79
+     Assertion with == failed
+     code:  assert Num127.to_string([0]) == "0"
+     left:  ""
+     right: "0"
+     stacktrace:
+       test/num127_test.exs:82: (test)
+
+
+
+  2) property exact division reduces GCD and behaves as correct rational (Num127Test)
+     test/num127_test.exs:66
+     Failed with generated values (after 0 successful runs):
+
+         * Clause:    a <- integer(0..5000)
+           Generated: 1454
+         
+         * Clause:    b <- integer(1..5000)
+           Generated: 1
+
+     Assertion with == failed
+     code:  assert Num127.to_integer(num_n) == exp_n
+     left:  7250
+     right: 1454
+     stacktrace:
+       test/num127_test.exs:74: anonymous fn/3 in Num127Test."property exact division reduces GCD and behaves as correct rational"/1
+       (stream_data 1.2.0) lib/stream_data.ex:2414: StreamData.shrink_failure/6
+       (stream_data 1.2.0) lib/stream_data.ex:2374: StreamData.check_all/7
+       test/num127_test.exs:67: (test)
+
+...
+
+  3) property div_rem exactly matches Elixir division and remainder (Num127Test)
+     test/num127_test.exs:55
+     Failed with generated values (after 0 successful runs):
+
+         * Clause:    a <- integer(0..200_000)
+           Generated: 54776
+         
+         * Clause:    b <- integer(1..1000)
+           Generated: 1
+
+     Assertion with == failed
+     code:  assert Num127.to_integer(q) == div(a, b)
+     left:  635384
+     right: 54776
+     stacktrace:
+       test/num127_test.exs:61: anonymous fn/3 in Num127Test."property div_rem exactly matches Elixir division and remainder"/1
+       (stream_data 1.2.0) lib/stream_data.ex:2414: StreamData.shrink_failure/6
+       (stream_data 1.2.0) lib/stream_data.ex:2374: StreamData.check_all/7
+       test/num127_test.exs:56: (test)
+
+
+Finished in 0.1 seconds (0.00s async, 0.1s sync)
+6 properties, 2 tests, 3 failures
