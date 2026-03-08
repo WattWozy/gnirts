@@ -28,18 +28,18 @@ defmodule Base127.Parser do
     str = String.trim_leading(str)
     cond do
       str == "" -> []
-      String.starts_with?(str, "(") -> ["(" | tokenize(String.slice(str, 1..-1))]
-      String.starts_with?(str, ")") -> [")" | tokenize(String.slice(str, 1..-1))]
-      String.starts_with?(str, "+") -> ["+" | tokenize(String.slice(str, 1..-1))]
-      String.starts_with?(str, "-") -> ["-" | tokenize(String.slice(str, 1..-1))]
-      String.starts_with?(str, "*") -> ["*" | tokenize(String.slice(str, 1..-1))]
-      String.starts_with?(str, "/") -> ["/" | tokenize(String.slice(str, 1..-1))]
-      String.starts_with?(str, "^") -> ["^" | tokenize(String.slice(str, 1..-1))]
-      String.starts_with?(str, ".") -> ["." | tokenize(String.slice(str, 1..-1))]
-      String.starts_with?(str, "=") -> ["=" | tokenize(String.slice(str, 1..-1))]
-      String.starts_with?(str, "[") -> ["[" | tokenize(String.slice(str, 1..-1))]
-      String.starts_with?(str, "]") -> ["]" | tokenize(String.slice(str, 1..-1))]
-      String.starts_with?(str, ",") -> ["," | tokenize(String.slice(str, 1..-1))]
+      String.starts_with?(str, "(") -> ["(" | tokenize(String.slice(str, 1..-1//1))]
+      String.starts_with?(str, ")") -> [")" | tokenize(String.slice(str, 1..-1//1))]
+      String.starts_with?(str, "+") -> ["+" | tokenize(String.slice(str, 1..-1//1))]
+      String.starts_with?(str, "-") -> ["-" | tokenize(String.slice(str, 1..-1//1))]
+      String.starts_with?(str, "*") -> ["*" | tokenize(String.slice(str, 1..-1//1))]
+      String.starts_with?(str, "/") -> ["/" | tokenize(String.slice(str, 1..-1//1))]
+      String.starts_with?(str, "^") -> ["^" | tokenize(String.slice(str, 1..-1//1))]
+      String.starts_with?(str, ".") -> ["." | tokenize(String.slice(str, 1..-1//1))]
+      String.starts_with?(str, "=") -> ["=" | tokenize(String.slice(str, 1..-1//1))]
+      String.starts_with?(str, "[") -> ["[" | tokenize(String.slice(str, 1..-1//1))]
+      String.starts_with?(str, "]") -> ["]" | tokenize(String.slice(str, 1..-1//1))]
+      String.starts_with?(str, ",") -> ["," | tokenize(String.slice(str, 1..-1//1))]
       true ->
         # Check for glyphs or variable names (variable names must not start with glyphs if ambiguous)
         # Actually, let's keep it simple: variable names are alphabetic but not single glyphs if they are in Alphabet.
@@ -102,10 +102,10 @@ defmodule Base127.Parser do
     # Take contiguous characters that are not operators or whitespace.
     # Stop before 'x' so it remains a separate indeterminate token.
     case Regex.run(~r/^[^\s\(\)\+\-\*\/\.\=\^x\[\]\,]+/, str) do
-      [match] -> {match, String.slice(str, String.length(match)..-1)}
+      [match] -> {match, String.slice(str, String.length(match)..-1//1)}
       nil ->
         if String.starts_with?(str, "x") do
-          {"x", String.slice(str, 1..-1)}
+          {"x", String.slice(str, 1..-1//1)}
         else
           {"", str}
         end
@@ -214,6 +214,7 @@ defmodule Base127.Parser do
     end
   end
 
+  defp parse_primary([]), do: {:error, "Unexpected end of input"}
   defp parse_primary(tokens), do: do_parse_primary(tokens)
 
   defp do_parse_primary(["interpolate" | rest]) do
@@ -262,7 +263,7 @@ defmodule Base127.Parser do
       true -> {:error, "Unexpected token: #{token}"}
     end
   end
-  defp parse_primary([]), do: {:error, "Unexpected end of input"}
+
 
   defp parse_points_list(["[" | rest]) do
     do_parse_points_list(rest, [])
