@@ -40,6 +40,11 @@ defmodule Base127.Parser do
       String.starts_with?(str, "[") -> ["[" | tokenize(String.slice(str, 1..-1//1))]
       String.starts_with?(str, "]") -> ["]" | tokenize(String.slice(str, 1..-1//1))]
       String.starts_with?(str, ",") -> ["," | tokenize(String.slice(str, 1..-1//1))]
+      # Measure keywords — must be checked before the general identifier splitter.
+      String.starts_with?(str, "against") -> ["against" | tokenize(String.slice(str, 7..-1//1))]
+      String.starts_with?(str, "degree")  -> ["degree"  | tokenize(String.slice(str, 6..-1//1))]
+      String.starts_with?(str, "roots")   -> ["roots"   | tokenize(String.slice(str, 5..-1//1))]
+      String.starts_with?(str, "fit")     -> ["fit"     | tokenize(String.slice(str, 3..-1//1))]
       true ->
         # Check for glyphs or variable names (variable names must not start with glyphs if ambiguous)
         # Actually, let's keep it simple: variable names are alphabetic but not single glyphs if they are in Alphabet.
@@ -185,7 +190,7 @@ defmodule Base127.Parser do
       err -> err
     end
   end
-  defp parse_mul_div_loop(left, [token | _] = rest) when token not in ["+", "-", ")", "=", "^", "[", "]", ",", "at"] do
+  defp parse_mul_div_loop(left, [token | _] = rest) when token not in ["+", "-", ")", "=", "^", "[", "]", ",", "at", "against", "degree", "roots", "fit"] do
     # Implicit multiplication (juxtaposition)
     case parse_unary(rest) do
       {:ok, right, final_rest} -> parse_mul_div_loop({:op, "*", left, right}, final_rest)
@@ -229,6 +234,31 @@ defmodule Base127.Parser do
         _ ->
           {:ok, {:interpolate, points}, rest2}
       end
+    end
+  end
+
+  defp do_parse_primary(["degree" | rest]) do
+    case parse_expression(rest) do
+      {:ok, poly_expr, final_rest} -> {:ok, {:degree, poly_expr}, final_rest}
+      err -> err
+    end
+  end
+
+  defp do_parse_primary(["roots" | rest]) do
+    case parse_expression(rest) do
+      {:ok, poly_expr, final_rest} -> {:ok, {:roots, poly_expr}, final_rest}
+      err -> err
+    end
+  end
+
+  defp do_parse_primary(["fit" | rest]) do
+    # fit <poly_expr> against [(x0, y0), (x1, y1), ...]
+    with {:ok, poly_expr, ["against" | rest2]} <- parse_expression(rest),
+         {:ok, points, final_rest} <- parse_points_list(rest2) do
+      {:ok, {:fit, poly_expr, points}, final_rest}
+    else
+      {:ok, _, rest2} -> {:error, "Expected 'against' after fit expression, got: #{inspect(rest2)}"}
+      {:error, reason} -> {:error, reason}
     end
   end
   defp do_parse_primary(["(" | rest]) do

@@ -9,10 +9,24 @@ defmodule Base127.Renderer do
   @doc "Renders a value to its canonical Base-127 string representation."
   def render(val) do
     case val do
+      # Measure result types
+      {:undefined}                -> "undefined"
+      {:undetermined}             -> "undetermined"
+      {:error, :zero_poly}        -> "error: zero polynomial"
+      {:error, reason}            -> "error: #{reason}"
+      # fit_ratio returns {count, total} from Num127.exact_div
+      {count, total} when is_list(count) and is_list(total) ->
+        render_unsigned(count) <> "/" <> render_unsigned(total)
+      # roots returns a list of Num127 values
+      root_list when is_list(root_list) and root_list != [] and is_list(hd(root_list)) ->
+        inner = root_list |> Enum.map(&render_unsigned/1) |> Enum.join(", ")
+        "[" <> inner <> "]"
+      # Polynomial
       %Base127.Poly{} = p -> render_poly(p)
-      [] -> Alphabet.encode(0)
+      # Num127 integers
+      []                          -> Alphabet.encode(0)
       digits when is_list(digits) -> render_unsigned(digits)
-      {:num_neg, digits} -> "-" <> render_unsigned(digits)
+      {:num_neg, digits}          -> "-" <> render_unsigned(digits)
       {:rat, n, d, sign} ->
         prefix = if sign == :neg, do: "-", else: ""
         prefix <> render_unsigned(n) <> "/" <> render_unsigned(d)

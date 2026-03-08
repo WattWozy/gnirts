@@ -123,6 +123,25 @@ defmodule Base127.Evaluator do
     end
   end
 
+  defp do_eval({:degree, poly_expr}, vars) do
+    with {:ok, poly, vars2} <- do_eval(poly_expr, vars) do
+      {:ok, Base127.Measure.degree(poly), vars2}
+    end
+  end
+
+  defp do_eval({:roots, poly_expr}, vars) do
+    with {:ok, poly, vars2} <- do_eval(poly_expr, vars) do
+      {:ok, Base127.Measure.roots(poly), vars2}
+    end
+  end
+
+  defp do_eval({:fit, poly_expr, points_ast}, vars) do
+    with {:ok, poly, vars2} <- do_eval(poly_expr, vars),
+         {:ok, points, vars3} <- eval_points(points_ast, vars2) do
+      {:ok, Base127.Measure.fit_ratio(poly, points), vars3}
+    end
+  end
+
   defp eval_points([], vars), do: {:ok, [], vars}
   defp eval_points([{x_ast, y_ast} | rest], vars) do
     with {:ok, x_val, vars2} <- do_eval(x_ast, vars),
